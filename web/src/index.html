@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sysml-blocks</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header id="topbar">
+  <div class="brand"><span class="brand-mark"></span>sysml-blocks</div>
+  <div class="topbar-right">
+    <span id="root-path" class="root-path"></span>
+    <button id="refresh" class="btn" title="Re-index the mapped volume">Refresh</button>
+  </div>
+</header>
+<div id="layout">
+  <nav id="sidebar" aria-label="Model files">
+    <div class="side-title">Files</div>
+    <ul id="file-list"></ul>
+    <button id="new-file" class="btn btn-ghost">New file…</button>
+  </nav>
+  <main id="canvas" tabindex="-1"></main>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="/app.js"></script>
+</body>
+</html>

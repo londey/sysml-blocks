@@ -1,0 +1,11 @@
+services:
+  sysml-blocks:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      # Point this at your SysML v2 model folder — a git worktree,
+      # or a synced OneDrive/SharePoint folder.
+      - ./examples:/models
+    environment:
+      - PORT=8080
