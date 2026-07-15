@@ -188,7 +188,10 @@ function render(): void {
     canvas.appendChild(pre);
     fetch("/api/source?file=" + encodeURIComponent(file.path))
       .then((r) => r.text())
-      .then((t) => (pre.textContent = t));
+      .then((t) => {
+        pre.textContent = "";
+        pre.appendChild(highlightSysml(t));
+      });
     return;
   }
 
@@ -513,6 +516,107 @@ function promptNameThen(
   } else {
     go(name.trim());
   }
+}
+
+// ---------- syntax highlighting (source view) ----------
+// mirrors the server lexer/parser token categories (lexer.rs, parser.rs)
+const HL_KINDS = new Set([
+  "package", "part", "attribute", "port", "item", "action", "state",
+  "requirement", "constraint", "connection", "interface", "allocation",
+  "analysis", "calc", "case", "concern", "enum", "flow", "metadata",
+  "occurrence", "rendering", "verification", "view", "viewpoint", "use",
+  "individual", "snapshot", "timeslice", "transition", "exhibit",
+  "perform", "satisfy", "verify", "assert", "assume", "require",
+  "subject", "actor", "stakeholder", "objective", "return", "bind",
+  "def", "import", "connect", "doc", "comment",
+  "specializes", "subsets", "redefines", "defined", "by", "to",
+]);
+const HL_MODIFIERS = new Set([
+  "abstract", "variation", "variant", "ref", "in", "out", "inout",
+  "readonly", "derived", "end", "private", "protected", "public",
+  "nonunique", "ordered", "default", "constant",
+]);
+
+// tokenize into styled spans; plain runs stay text nodes, so the fragment's
+// textContent always equals the input source exactly
+function highlightSysml(src: string): DocumentFragment {
+  const frag = document.createDocumentFragment();
+  let plain = "";
+  const flush = (): void => {
+    if (plain) {
+      frag.appendChild(document.createTextNode(plain));
+      plain = "";
+    }
+  };
+  const tok = (cls: string, text: string): void => {
+    flush();
+    frag.appendChild(el("span", cls, text));
+  };
+  const n = src.length;
+  let i = 0;
+  while (i < n) {
+    const c = src[i];
+    if (c === "/" && src[i + 1] === "*") {
+      const close = src.indexOf("*/", i + 2);
+      const j = close < 0 ? n : close + 2;
+      tok("tok-com", src.slice(i, j));
+      i = j;
+    } else if (c === "/" && src[i + 1] === "/") {
+      let j = src.indexOf("\n", i);
+      if (j < 0) j = n;
+      tok("tok-com", src.slice(i, j));
+      i = j;
+    } else if (c === '"' || c === "'") {
+      let j = i + 1;
+      while (j < n && src[j] !== c && src[j] !== "\n") {
+        if (src[j] === "\\") j++;
+        j++;
+      }
+      if (j < n && src[j] === c) j++;
+      tok(c === '"' ? "tok-str" : "tok-name", src.slice(i, j));
+      i = j;
+    } else if (c >= "0" && c <= "9") {
+      let j = i + 1;
+      while (j < n) {
+        const d = src[j];
+        if (d >= "0" && d <= "9") { j++; continue; }
+        // decimal point only when followed by a digit (spares `[0..*]`)
+        if (d === "." && src[j + 1] >= "0" && src[j + 1] <= "9") { j++; continue; }
+        if ((d === "e" || d === "E") && /[0-9+-]/.test(src[j + 1] ?? "")) {
+          j += 2;
+          continue;
+        }
+        break;
+      }
+      tok("tok-num", src.slice(i, j));
+      i = j;
+    } else if (/[A-Za-z_]/.test(c)) {
+      let j = i + 1;
+      while (j < n && /[A-Za-z0-9_]/.test(src[j])) j++;
+      const w = src.slice(i, j);
+      if (HL_KINDS.has(w)) tok("tok-kw", w);
+      else if (HL_MODIFIERS.has(w)) tok("tok-mod", w);
+      else plain += w;
+      i = j;
+    } else if (src.startsWith(":>>", i)) {
+      tok("tok-op", ":>>");
+      i += 3;
+    } else if (src.startsWith(":>", i)) {
+      tok("tok-op", ":>");
+      i += 2;
+    } else if (src.startsWith("::", i)) {
+      tok("tok-op", "::");
+      i += 2;
+    } else if (c === ":" || c === "=" || c === "~") {
+      tok("tok-op", c);
+      i++;
+    } else {
+      plain += c;
+      i++;
+    }
+  }
+  flush();
+  return frag;
 }
 
 // ---------- dependency graph ----------

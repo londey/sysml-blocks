@@ -152,6 +152,14 @@ pre.source-view {
   overflow-x: auto;
   white-space: pre;
 }
+/* source view syntax highlighting (token classes from highlightSysml) */
+.source-view .tok-kw { color: var(--c-partdef); font-weight: 600; }
+.source-view .tok-mod { color: var(--c-package); }
+.source-view .tok-com { color: var(--c-doc); font-style: italic; }
+.source-view .tok-str { color: var(--c-attr); }
+.source-view .tok-name { color: var(--c-attrdef); }
+.source-view .tok-num { color: var(--c-constraint); }
+.source-view .tok-op { color: var(--c-port); font-weight: 600; }
 
 /* ---------- blocks ---------- */
 .block {
