@@ -9,8 +9,19 @@
 <body>
 <header id="topbar">
   <div class="brand"><span class="brand-mark"></span>sysml-blocks</div>
+  <div id="search-wrap">
+    <input id="search-input" type="text" placeholder="Search model…  ( / )"
+           aria-label="Search model" autocomplete="off" spellcheck="false">
+    <button id="search-regex" class="search-toggle" title="Regular expression" aria-pressed="false">.*</button>
+    <button id="search-case" class="search-toggle" title="Case sensitive" aria-pressed="false">Aa</button>
+    <button id="search-fields-btn" class="search-toggle" title="Search fields"
+            aria-haspopup="true" aria-expanded="false">Fields ▾</button>
+    <div id="search-fields-menu" hidden></div>
+    <div id="search-panel" role="listbox" aria-label="Search results" hidden></div>
+  </div>
   <div class="topbar-right">
     <span id="root-path" class="root-path"></span>
+    <button id="export-pdf" class="btn" title="Export model as PDF">Export PDF</button>
     <button id="refresh" class="btn" title="Re-index the mapped volume">Refresh</button>
   </div>
 </header>

@@ -73,7 +73,7 @@ impl Workspace {
         self.root = fresh.root;
     }
 
-    fn find<'a>(files: &'a [FileModel], id: &str) -> Option<(usize, &'a Element)> {
+    pub(crate) fn find<'a>(files: &'a [FileModel], id: &str) -> Option<(usize, &'a Element)> {
         let fidx: usize = id
             .strip_prefix('f')?
             .split('.')

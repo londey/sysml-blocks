@@ -5,13 +5,18 @@
 //!
 //!   GET  /api/model            full parsed workspace as JSON
 //!   GET  /api/source?file=...  raw text of one file
+//!   GET  /api/export?scope=... PDF export (scope=element|file|project,
+//!                              id=/file= selector, format=doc|blocks)
 //!   POST /api/edit             apply one EditOp (see model.rs), returns model
 //!   anything else              static files from WEB_ROOT (SPA)
 
+mod export;
 mod lexer;
 mod model;
 mod parser;
+mod pdf;
 
+use export::{ExportFormat, ExportScope};
 use model::{EditOp, Workspace};
 #[allow(unused_imports)]
 use std::io::Read;
@@ -72,15 +77,7 @@ fn main() {
                 json_response(200, serde_json::to_string(&*w).unwrap())
             }
             (Method::Get, "/api/source") => {
-                let file = url
-                    .split('?')
-                    .nth(1)
-                    .and_then(|q| {
-                        q.split('&')
-                            .find(|kv| kv.starts_with("file="))
-                            .map(|kv| kv.trim_start_matches("file=").to_string())
-                    })
-                    .map(|f| urldecode(&f));
+                let file = query_param(&url, "file");
                 let w = ws.lock().unwrap();
                 match file.and_then(|f| {
                     w.files.iter().find(|fm| fm.path == f).map(|fm| fm.source.clone())
@@ -90,6 +87,11 @@ fn main() {
                         .with_header(header("Cache-Control", "no-store")),
                     None => Response::from_string("file not found").with_status_code(404),
                 }
+            }
+            (Method::Get, "/api/export") => {
+                let mut w = ws.lock().unwrap();
+                w.refresh(&models_dir);
+                handle_export(&w, &url)
             }
             (Method::Post, "/api/edit") => {
                 let mut body = String::new();
@@ -120,6 +122,61 @@ fn main() {
         };
         let _ = req.respond(resp);
     }
+}
+
+/// GET /api/export?scope=element|file|project[&id=..][&file=..][&format=doc|blocks]
+/// Success: the PDF as an attachment. Bad params: 400. Unknown id/file: 404.
+fn handle_export(w: &Workspace, url: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    fn err400(msg: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+        json_response(
+            400,
+            format!("{{\"error\":{}}}", serde_json::to_string(msg).unwrap()),
+        )
+    }
+    let format = match query_param(url, "format").as_deref() {
+        None | Some("doc") => ExportFormat::Doc,
+        Some("blocks") => ExportFormat::Blocks,
+        Some(_) => return err400("format must be 'doc' or 'blocks'"),
+    };
+    let scope = match query_param(url, "scope").as_deref() {
+        Some("element") => match query_param(url, "id") {
+            Some(id) => ExportScope::Element(id),
+            None => return err400("scope=element requires an id parameter"),
+        },
+        Some("file") => match query_param(url, "file") {
+            Some(f) => ExportScope::File(f),
+            None => return err400("scope=file requires a file parameter"),
+        },
+        Some("project") => ExportScope::Project,
+        Some(_) => return err400("scope must be 'element', 'file' or 'project'"),
+        None => return err400("missing scope parameter"),
+    };
+    match export::export_pdf(w, &scope, format) {
+        Ok((bytes, name)) => Response::from_data(bytes)
+            .with_header(header("Content-Type", "application/pdf"))
+            .with_header(header(
+                "Content-Disposition",
+                &format!("attachment; filename=\"{}\"", name),
+            ))
+            .with_header(header("Cache-Control", "no-store")),
+        Err(e) => json_response(
+            404,
+            format!("{{\"error\":{}}}", serde_json::to_string(&e).unwrap()),
+        ),
+    }
+}
+
+/// Extract and url-decode one query parameter from a request url.
+fn query_param(url: &str, key: &str) -> Option<String> {
+    let q = url.split('?').nth(1)?;
+    q.split('&').find_map(|kv| {
+        let (k, v) = kv.split_once('=')?;
+        if k == key {
+            Some(urldecode(v))
+        } else {
+            None
+        }
+    })
 }
 
 fn serve_static(root: &Path, path: &str) -> Response<std::io::Cursor<Vec<u8>>> {
