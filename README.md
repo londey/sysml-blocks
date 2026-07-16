@@ -27,7 +27,8 @@ diffs stay reviewable in a git PR workflow.
 docker compose up --build
 # or, against your own models:
 docker build -t sysml-blocks .
-docker run --rm -p 8080:8080 -v /path/to/your/models:/models sysml-blocks
+# --init runs an init as PID 1 so Ctrl-C (and `docker stop`) exit cleanly
+docker run --init --rm -p 8080:8080 -v /path/to/your/models:/models sysml-blocks
 ```
 
 Open http://localhost:8080. Local dev without Docker:

@@ -1,6 +1,8 @@
 services:
   sysml-blocks:
     build: .
+    # run an init (tini) as PID 1 so Ctrl-C and `docker stop` exit cleanly
+    init: true
     ports:
       - "8080:8080"
     volumes:
